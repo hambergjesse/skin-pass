@@ -3,10 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const distPath = path.join(__dirname, '../dist');
+const distPath = path.join(process.cwd(), 'dist');
 
 function verifyBuild() {
   console.log('Verifying build output...');
+  console.log('Build directory:', distPath);
   
   // Check if dist directory exists
   if (!fs.existsSync(distPath)) {
