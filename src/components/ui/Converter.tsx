@@ -6,13 +6,16 @@ import { performSecurityChecks } from '../../utils/passwordGenerator';
 import { Button } from './Button';
 import { Input } from './Input';
 import { CopyIcon, CheckIcon } from '@radix-ui/react-icons';
+import { CrackTimeEstimate } from '../../utils/estimateCrackTime';
+import { formatLargeTime } from '../../utils/formatTime';
 
 interface ConverterProps {
   onConvert: (input: string) => Promise<string>;
   isConverting: boolean;
+  crackTimeInfo: CrackTimeEstimate | null;
 }
 
-export const Converter = ({ onConvert, isConverting }: ConverterProps) => {
+export const Converter = ({ onConvert, isConverting, crackTimeInfo }: ConverterProps) => {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [copied, setCopied] = useState(false);
@@ -23,7 +26,9 @@ export const Converter = ({ onConvert, isConverting }: ConverterProps) => {
       setOutput(result);
       setCopied(false);
     } catch (error) {
-      // Error is handled by the parent component
+      // Error is handled by the parent component (App.tsx)
+      // Ensure output is cleared if conversion fails
+      setOutput(''); 
     }
   };
 
@@ -31,6 +36,8 @@ export const Converter = ({ onConvert, isConverting }: ConverterProps) => {
     setInput('');
     setOutput('');
     setCopied(false);
+    // Error and crackTimeInfo state are managed in App.tsx, 
+    // clearing output here is sufficient to hide the related UI.
   };
 
   const handleCopy = async () => {
@@ -88,29 +95,40 @@ export const Converter = ({ onConvert, isConverting }: ConverterProps) => {
         </div>
 
         {output && (
-          <div className="space-y-2">
-            <Input
-              label="Generated Password"
-              value={output}
-              readOnly
-              className="bg-background-dark/50 border-gray-700"
-            />
-            <Button
-              onClick={handleCopy}
-              className="w-full bg-gray-700/50 hover:bg-gray-700/70 text-white py-2.5"
-            >
-              {copied ? (
-                <>
-                  <CheckIcon className="w-5 h-5 mr-2" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <CopyIcon className="w-5 h-5 mr-2" />
-                  Copy Password
-                </>
-              )}
-            </Button>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Input
+                label="Generated Password"
+                value={output}
+                readOnly
+                className="bg-background-dark/50 border-gray-700 font-mono"
+              />
+              <Button
+                onClick={handleCopy}
+                className="w-full bg-gray-700/50 hover:bg-gray-700/70 text-white py-2.5"
+              >
+                {copied ? (
+                  <>
+                    <CheckIcon className="w-5 h-5 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon className="w-5 h-5 mr-2" />
+                    Copy Password
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {crackTimeInfo && (
+              <div className="flex items-center justify-between text-sm text-gray-400 pt-2">
+                <span>Est. Time to Crack:</span>
+                <span className="font-medium text-gray-100">
+                  {formatLargeTime(crackTimeInfo.crackTimeSeconds)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

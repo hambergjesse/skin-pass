@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { validateInspectLink, generatePassword } from '../utils/passwordGenerator';
 import { InspectLink, PasswordResult } from '../types';
 import { securityConfig, browserSecurity } from '../config/security';
+import { estimateCrackTime } from '../utils/estimateCrackTime';
 
 const CountdownTimer = ({ endTime }: { endTime: number }) => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -92,6 +93,7 @@ const PasswordGenerator = () => {
   const [error, setError] = useState<string | null>(null);
   const [rateLimitEndTime, setRateLimitEndTime] = useState<number>(0);
   const [securityWarnings, setSecurityWarnings] = useState<string[]>([]);
+  const [crackTimeInfo, setCrackTimeInfo] = useState<{ score: number; crackTimeDisplay: string } | null>(null);
   
   const attemptHistory = useRef<number[]>([]);
 
@@ -130,6 +132,8 @@ const PasswordGenerator = () => {
     const value = e.target.value;
     setInspectLink(value);
     setError(null);
+    setPasswordResult(null);
+    setCrackTimeInfo(null);
     
     if (value) {
       const validation = validateInspectLink(value);
@@ -144,6 +148,8 @@ const PasswordGenerator = () => {
   }, []);
 
   const handleGeneratePassword = useCallback(async () => {
+    console.log('handleGeneratePassword function CALLED');
+
     if (!linkValidation?.isValid) return;
 
     if (isRateLimited()) {
@@ -153,17 +159,32 @@ const PasswordGenerator = () => {
 
     setIsGenerating(true);
     setError(null);
+    setPasswordResult(null);
+    setCrackTimeInfo(null);
     attemptHistory.current.push(Date.now());
 
     try {
       const result = await generatePassword(linkValidation);
+      console.log('Password Generation Result:', result);
       setPasswordResult(result);
-      // Update security warnings from the result
-      if (result.warnings.length > 0) {
-        setSecurityWarnings(prev => [...new Set([...prev, ...result.warnings])]);
+      
+      if (result && result.password) {
+        if (result.warnings.length > 0) {
+          setSecurityWarnings(prev => [...new Set([...prev, ...result.warnings])]);
+        }
+        
+        const crackEstimate = estimateCrackTime(result.password);
+        console.log('Crack Time Estimate:', crackEstimate);
+        setCrackTimeInfo(crackEstimate);
+      } else {
+        console.error('Password generation failed or returned invalid result', result);
+        setError('Failed to generate password data.');
       }
+
     } catch (err) {
+      console.error('Error during password generation:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate password');
+      setCrackTimeInfo(null);
     } finally {
       setIsGenerating(false);
     }
@@ -182,6 +203,9 @@ const PasswordGenerator = () => {
       console.error('Failed to copy password:', e);
     }
   };
+
+  // Log state just before rendering
+  console.log('Rendering with State:', { passwordResult, crackTimeInfo });
 
   return (
     <div className="space-y-6">
@@ -251,9 +275,32 @@ const PasswordGenerator = () => {
                 passwordResult.strength > 0.5 ? 'text-[#ffcc00]' :
                 'text-[#ff3366]'
               }`}>
-                {Math.round(passwordResult.strength * 100)}%
+                {passwordResult.strength > 0.75 ? 'Strong' : passwordResult.strength > 0.5 ? 'Moderate' : 'Weak'}
               </span>
             </div>
+
+            {crackTimeInfo && (
+              <div className="flex items-center justify-between text-sm mt-1"> 
+                <span className="text-gray-300">Est. Time to Crack:</span>
+                <span className="font-medium text-gray-100">
+                  {crackTimeInfo.crackTimeDisplay}
+                </span>
+              </div>
+            )}
+
+            <div className="w-full bg-[#001233] rounded-full h-2.5">
+              <div
+                className={`h-2.5 rounded-full transition-all duration-500 ${
+                  passwordResult.strength > 0.75 ? 'bg-gradient-to-r from-[#00f7ff] to-[#0066ff]' :
+                  passwordResult.strength > 0.5 ? 'bg-[#ffcc00]' :
+                  'bg-[#ff3366]'
+                }`}
+                style={{ width: `${Math.max(5, passwordResult.strength * 100)}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-300">Entropy:</span>
               <span className="font-mono text-[#00f7ff]">
